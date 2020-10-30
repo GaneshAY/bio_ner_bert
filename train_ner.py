@@ -1,4 +1,6 @@
+print("Started...")
 import random
+
 
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -11,6 +13,8 @@ from nn_utils.optimizers import get_optimizer_with_weight_decay
 from nn_utils.trainer import BertTrainer
 
 # https://github.com/cambridgeltl/MTL-Bioinformatics-2016/tree/master/data
+print("inporting")
+
 DATA_TR_PATH = 'train.txt'
 # './data/JNLPBA/Genia4ERtask1.iob2'
 DATA_VAL_PATH = 'dev.txt'
@@ -45,32 +49,40 @@ torch.cuda.manual_seed_all(SEED)
 training_set = read_data_from_file(DATA_TR_PATH)
 val_set = read_data_from_file(DATA_VAL_PATH)
 
+print("reading train and val")
+
 # Automatically extract labels and their indexes from data.
 labels2ind, labels_count = get_labels(training_set + val_set)
 
 # Load tokenizer
+print("loading tokenzier")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
 # Create loaders for datasets
+print("created loaders")
 training_set = NerDataset(dataset=training_set,
                           tokenizer=tokenizer,
                           labels2ind=labels2ind,
                           max_len_seq=MAX_LEN_SEQ)
 
+print("load validation")
 val_set = NerDataset(dataset=val_set,
                      tokenizer=tokenizer,
                      labels2ind=labels2ind,
                      max_len_seq=MAX_LEN_SEQ)
 
+print("load train again")
 dataloader_tr = DataLoader(dataset=training_set,
                            batch_size=BATCH_SIZE,
                            shuffle=True)
 
+print("load val again")
 dataloader_val = DataLoader(dataset=val_set,
                             batch_size=BATCH_SIZE_VAL,
                             shuffle=False)
 
 # Load model
+print("load model")
 nerbert = BertForTokenClassification.from_pretrained(MODEL_NAME,
                                                      hidden_dropout_prob=DROPOUT,
                                                      attention_probs_dropout_prob=DROPOUT,
@@ -78,10 +90,13 @@ nerbert = BertForTokenClassification.from_pretrained(MODEL_NAME,
                                                      id2label={str(v): k for k, v in labels2ind.items()})
 
 # Prepare optimizer and schedule (linear warmup and decay)
+print("prep optimizer")
 optimizer = get_optimizer_with_weight_decay(model=nerbert,
                                             optimizer=OPTIMIZER,
                                             learning_rate=LEARNING_RATE,
                                             weight_decay=WEIGHT_DECAY)
+
+print("train, scheduler")
 
 training_steps = (len(dataloader_tr)//ACUMULATE_GRAD_EVERY) * N_EPOCHS
 scheduler = get_linear_schedule_with_warmup(optimizer=optimizer,
@@ -89,6 +104,7 @@ scheduler = get_linear_schedule_with_warmup(optimizer=optimizer,
                                             num_training_steps=training_steps)
 
 # Trainer
+print("trainer...")
 trainer = BertTrainer(model=nerbert,
                       tokenizer=tokenizer,
                       optimizer=optimizer,
@@ -100,9 +116,11 @@ trainer = BertTrainer(model=nerbert,
                       output_dir='./trained_models')
 
 # Train and validate model
+print("train train")
 trainer.train(dataloader_train=dataloader_tr,
               dataloader_val=dataloader_val)
 
+print("tester")
 # Test the model on test set if any
 if DATA_TEST_PATH is not None:
     print(f"{'*'*40}\n\t\tEVALUATION ON TEST SET\n{'*'*40}")
@@ -118,3 +136,4 @@ if DATA_TEST_PATH is not None:
 
     trainer.evaluate(dataloader_test, verbose=True)
 
+print("Success")
